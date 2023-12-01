@@ -48,6 +48,6 @@ The notebook focuses on cleaning and preparing our flights dataset for further a
 
 Setup: 
 
-import pandas as pd 
+import pandas as pd \n
 import numpy as np
 !pip install pandas numpy
