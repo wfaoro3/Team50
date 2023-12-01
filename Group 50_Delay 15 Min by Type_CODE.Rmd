@@ -1,0 +1,320 @@
+---
+title: "Delay >15 Min by Type CODE"
+author: "Group 50"
+date: "12/1/2023"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+flights_2018_2023 <- read.csv("C:/Users/yaroa/Downloads/flights_2018_2023_top_airports.csv")  #TO BE ADJUSTED TO WHERE DATA IS STORED ON PERSONAL DEVICE FOR NEW USER
+
+data = flights_2018_2023
+
+#install.packages("vctrs")
+
+library(foreign)
+library(dplyr)
+library(missForest)
+library(leaps)
+library(xtable)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+#library(caret)
+library(ggplot2)
+library(rattle)
+library(maptree)
+
+```
+
+```{r}
+#Cleaning the Data
+summary(data)
+```
+
+
+
+```{r}
+#subset$education = as.factor(subset$education)
+#data = subset(data, select = -c(BRANDED_CODE_SHARE) ) #No need to know if code shared
+#data = subset(data, select = -c(MKT_CARRIER_AIRLINE_ID, MKT_UNIQUE_CARRIER)) #No need to know other MKT info (all same)
+#data = subset(data, select = -c(SCH_OP_UNIQUE_CARRIER, SCH_OP_CARRIER_AIRLINE_ID, SCH_OP_CARRIER)) #Not needed
+
+data_cancel = subset(data, select = c(YEAR, MONTH, DAY_OF_MONTH, DAY_OF_WEEK, MKT_CARRIER, ORIGIN_AIRPORT_ID, ORIGIN, ORIGIN_CITY_NAME, ORIGIN_STATE_ABR, DEST_AIRPORT_ID, DEST, DEST_CITY_NAME, ARR_DELAY_NEW, DEST_STATE_ABR, ARR_DEL15, DIVERTED, CARRIER_DELAY, WEATHER_DELAY, NAS_DELAY, SECURITY_DELAY, LATE_AIRCRAFT_DELAY, CANCELLED))
+                     
+                     
+data_cancel$YEAR = as.integer(data_cancel$YEAR)
+data_cancel$MONTH = as.factor(data_cancel$MONTH)
+data_cancel$DAY_OF_MONTH = as.integer(data_cancel$DAY_OF_MONTH)
+data_cancel$DAY_OF_WEEK = as.factor(data_cancel$DAY_OF_WEEK)
+data_cancel$MKT_CARRIER = as.factor(data_cancel$MKT_CARRIER)
+data_cancel$ORIGIN_AIRPORT_ID = as.factor(data_cancel$ORIGIN_AIRPORT_ID)
+data_cancel$ORIGIN = as.factor(data_cancel$ORIGIN)
+data_cancel$ORIGIN_CITY_NAME = as.factor(data_cancel$ORIGIN_CITY_NAME)
+data_cancel$ORIGIN_STATE_ABR = as.factor(data_cancel$ORIGIN_STATE_ABR)
+data_cancel$DEST_AIRPORT_ID = as.factor(data_cancel$DEST_AIRPORT_ID)
+data_cancel$DEST = as.factor(data_cancel$DEST)
+data_cancel$DEST_CITY_NAME = as.factor(data_cancel$DEST_CITY_NAME)
+data_cancel$DEST_STATE_ABR = as.factor(data_cancel$DEST_STATE_ABR)
+data_cancel$ARR_DEL15 = as.factor(data_cancel$ARR_DEL15)
+data_cancel$DIVERTED = as.factor(data_cancel$DIVERTED)
+data_cancel$CARRIER_DELAY = as.factor(data_cancel$CARRIER_DELAY)
+data_cancel$WEATHER_DELAY = as.factor(data_cancel$WEATHER_DELAY)
+data_cancel$NAS_DELAY = as.factor(data_cancel$NAS_DELAY)
+data_cancel$SECURITY_DELAY = as.factor(data_cancel$SECURITY_DELAY)
+data_cancel$LATE_AIRCRAFT_DELAY = as.factor(data_cancel$LATE_AIRCRAFT_DELAY)
+data_cancel$CANCELLED = as.factor(data_cancel$CANCELLED)
+
+summary(data_cancel)
+
+```
+
+
+#Types of Delays
+
+
+```{r}
+#Splitting data into different departure cities
+delays = data_cancel[c(which(data_cancel$ARR_DEL15 == 1)),]
+
+
+delays = subset(delays, select = c(YEAR, MONTH, DAY_OF_MONTH, DAY_OF_WEEK, MKT_CARRIER, ORIGIN_AIRPORT_ID, ORIGIN, ORIGIN_CITY_NAME, ORIGIN_STATE_ABR, DEST_AIRPORT_ID, DEST, DEST_CITY_NAME, DEST_STATE_ABR, CARRIER_DELAY, WEATHER_DELAY, NAS_DELAY, SECURITY_DELAY, LATE_AIRCRAFT_DELAY))  #Removed Diverted and Cancelled
+
+delays$CARRIER_DELAY = as.integer(delays$CARRIER_DELAY)
+delays$WEATHER_DELAY = as.integer(delays$WEATHER_DELAY)
+delays$NAS_DELAY = as.integer(delays$NAS_DELAY)
+delays$SECURITY_DELAY = as.integer(delays$SECURITY_DELAY)
+delays$LATE_AIRCRAFT_DELAY = as.integer(delays$LATE_AIRCRAFT_DELAY)
+
+delays$CARRIER_DELAY[delays$CARRIER_DELAY <15] <- 0
+delays$CARRIER_DELAY[delays$CARRIER_DELAY >=15] <- 1
+delays$CARRIER_DELAY = as.factor(delays$CARRIER_DELAY)
+
+
+delays$WEATHER_DELAY[delays$WEATHER_DELAY <15] <- 0
+delays$WEATHER_DELAY[delays$WEATHER_DELAY >=15] <- 1
+delays$WEATHER_DELAY = as.factor(delays$WEATHER_DELAY)
+
+
+delays$NAS_DELAY[delays$NAS_DELAY <15] <- 0
+delays$NAS_DELAY[delays$NAS_DELAY >=15] <- 1
+delays$NAS_DELAY = as.factor(delays$NAS_DELAY)
+
+
+delays$SECURITY_DELAY[delays$SECURITY_DELAY <15] <- 0
+delays$SECURITY_DELAY[delays$SECURITY_DELAY >=15] <- 1
+delays$SECURITY_DELAY = as.factor(delays$SECURITY_DELAY)
+
+delays$LATE_AIRCRAFT_DELAY[delays$LATE_AIRCRAFT_DELAY <15] <- 0
+delays$LATE_AIRCRAFT_DELAY[delays$LATE_AIRCRAFT_DELAY >=15] <- 1
+delays$LATE_AIRCRAFT_DELAY = as.factor(delays$LATE_AIRCRAFT_DELAY)
+
+
+summary(delays)
+```
+
+
+```{r}
+BSSoutB <- regsubsets(CARRIER_DELAY~ MONTH + DAY_OF_WEEK + MKT_CARRIER + ORIGIN + DEST, data = delays, method = "backward", nvmax = 15)  #gets us our final model to give us our coefficients
+plot(BSSoutB, scale = "bic", main = "BSS for Coefficients of Logistic Regression Model")
+
+BestBIC = which.min(summary(BSSoutB)$bic)
+y = round(coef(BSSoutB,BestBIC),4)  
+y
+```
+
+
+## Carrier Delay
+```{r}
+set.seed(716)
+tree = rpart(CARRIER_DELAY~ MONTH + DAY_OF_WEEK + MKT_CARRIER + ORIGIN + DEST, data = delays, method = "class", control = rpart.control(cp = .0005))
+fancyRpartPlot(tree, main = "Single Tree Explaining Carrier Delay > 15 min", palettes=c("Greens", "Reds"))
+
+```
+
+```{r}
+#Obtain the fitted probabilities
+
+response = delays$CARRIER_DELAY
+denom = nrow(delays)
+
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, response) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == response)/denom)   
+```
+
+
+
+
+
+## Weather Delay IS NOT MEANINGFUL
+```{r}
+set.seed(716)
+tree = rpart(WEATHER_DELAY ~ MONTH + DAY_OF_WEEK + MKT_CARRIER + ORIGIN + DEST, data = delays, method = "class", control = rpart.control(cp = .0001))
+#commented out b/c not useful, only node 
+#fancyRpartPlot(tree, main = "Single Tree", palettes=c("Greens", "Reds"))
+```
+
+
+
+
+## NAS Delay
+```{r}
+set.seed(716)
+tree = rpart(NAS_DELAY~ MONTH + DAY_OF_WEEK + MKT_CARRIER + ORIGIN + DEST, data = delays, method = "class", control = rpart.control(cp = .002))
+fancyRpartPlot(tree, main = "Single Tree Explaining NAS Delay by >15 min", palettes=c("Greens", "Reds"))
+```
+
+```{r}
+#Obtain the fitted probabilities
+
+response = delays$NAS_DELAY
+denom = nrow(delays)
+
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, response) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == response)/denom)   
+```
+
+
+## SECURITY Delay
+```{r}
+set.seed(716)
+tree = rpart(SECURITY_DELAY ~ MONTH + DAY_OF_WEEK + MKT_CARRIER + ORIGIN + DEST, data = delays, method = "class", control = rpart.control(cp = .00001))
+#Commented Out b/c only node
+#fancyRpartPlot(tree, main = "Single Tree", palettes=c("Greens", "Reds"))
+```
+
+```{r}
+#Obtain the fitted probabilities
+
+response = delays$SECURITY_DELAY
+denom = nrow(delays)
+
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, response) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == response)/denom)   
+```
+
+
+
+
+
+
+
+## LATE_AIRCRAFT_DELAY Delay
+```{r}
+set.seed(716)
+tree = rpart(LATE_AIRCRAFT_DELAY ~ MONTH + DAY_OF_WEEK + MKT_CARRIER + ORIGIN + DEST, data = delays, method = "class", control = rpart.control(cp = .001))
+fancyRpartPlot(tree, main = "Single Tree Explaining Late Incoming Aircraft Delay > 15 min", palettes=c("Greens", "Reds"))
+```
+
+```{r}
+#Obtain the fitted probabilities
+
+response = delays$LATE_AIRCRAFT_DELAY
+denom = nrow(delays)
+
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, response) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == response)/denom)   
+```
+
+
+
+
+
+
+
+
+
+# PREDICTING ODDS OF BEING DELAYED
+
+```{r}
+#ARR_DELAY_NEW
+delays_bin = data_cancel
+
+
+delays_bin = subset(delays_bin, select = c(YEAR, MONTH, DAY_OF_MONTH, DAY_OF_WEEK, MKT_CARRIER, ORIGIN_AIRPORT_ID, ORIGIN, ORIGIN_CITY_NAME, ORIGIN_STATE_ABR, DEST_AIRPORT_ID, DEST, DEST_CITY_NAME, DEST_STATE_ABR, ARR_DELAY_NEW))  #Removed Diverted and Cancelled
+
+
+delays_bin$ARR_DELAY_NEW[delays_bin$ARR_DELAY_NEW < 45] <- 0
+delays_bin$ARR_DELAY_NEW[delays_bin$ARR_DELAY_NEW >= 45] <- 1
+delays_bin$ARR_DELAY_NEW = as.factor(delays_bin$ARR_DELAY_NEW)
+
+delays_bin = na.omit(delays_bin)
+
+summary(delays_bin)
+
+```
+
+
+```{r}
+city_data = delays_bin[c(which(delays_bin$ORIGIN_CITY_NAME == "Chicago, IL")),]
+
+set.seed(716)
+
+tree = rpart(ARR_DELAY_NEW ~ MONTH + DAY_OF_WEEK + MKT_CARRIER + ORIGIN + DEST, data = city_data, method = "class", control = rpart.control(cp = .000001, minbucket = 20))
+# COmmented out because only has node
+#fancyRpartPlot(tree, main = "Single Tree", palettes=c("Greens", "Reds"))
+```
+
+```{r}
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, city_data$ARR_DELAY_NEW) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == city_data$ARR_DELAY_NEW)/nrow(city_data))   #26.54%
+```
+
+
+

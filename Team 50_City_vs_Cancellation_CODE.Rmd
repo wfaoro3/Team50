@@ -1,0 +1,1087 @@
+---
+title: "City vs Cancellation CODE"
+author: "Group 50"
+date: "12/1/2023"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+flights_2018_2023 <- read.csv("C:/Users/yaroa/Downloads/flights_2018_2023_top_airports.csv")  #TO BE ADJUSTED TO WHERE DATA IS STORED ON PERSONAL DEVICE FOR NEW USER
+
+data = flights_2018_2023
+
+#install.packages("vctrs")
+
+library(foreign)
+library(dplyr)
+library(missForest)
+library(leaps)
+library(xtable)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+#library(caret)
+library(ggplot2)
+library(rattle)
+library(maptree)
+
+```
+
+```{r}
+#Cleaning the Data
+summary(data)
+```
+
+```{r}
+unique_cities = unique(data$ORIGIN_CITY_NAME)
+unique_cities
+```
+
+
+
+```{r}
+#subset$education = as.factor(subset$education)
+#data = subset(data, select = -c(BRANDED_CODE_SHARE) ) #No need to know if code shared
+#data = subset(data, select = -c(MKT_CARRIER_AIRLINE_ID, MKT_UNIQUE_CARRIER)) #No need to know other MKT info (all same)
+#data = subset(data, select = -c(SCH_OP_UNIQUE_CARRIER, SCH_OP_CARRIER_AIRLINE_ID, SCH_OP_CARRIER)) #Not needed
+
+data_cancel = subset(data, select = c(YEAR, MONTH, DAY_OF_MONTH, DAY_OF_WEEK, MKT_CARRIER, ORIGIN_AIRPORT_ID, ORIGIN, ORIGIN_CITY_NAME, ORIGIN_STATE_ABR, DEST_AIRPORT_ID, DEST, DEST_CITY_NAME, ARR_DELAY_NEW, DEST_STATE_ABR, ARR_DEL15, DIVERTED, CARRIER_DELAY, WEATHER_DELAY, NAS_DELAY, SECURITY_DELAY, LATE_AIRCRAFT_DELAY, CANCELLED, ORIGIN_CITY_MARKET_ID))
+                     
+                     
+data_cancel$YEAR = as.integer(data_cancel$YEAR)
+data_cancel$MONTH = as.factor(data_cancel$MONTH)
+data_cancel$DAY_OF_MONTH = as.integer(data_cancel$DAY_OF_MONTH)
+data_cancel$DAY_OF_WEEK = as.factor(data_cancel$DAY_OF_WEEK)
+data_cancel$MKT_CARRIER = as.factor(data_cancel$MKT_CARRIER)
+data_cancel$ORIGIN_AIRPORT_ID = as.factor(data_cancel$ORIGIN_AIRPORT_ID)
+data_cancel$ORIGIN = as.factor(data_cancel$ORIGIN)
+data_cancel$ORIGIN_CITY_NAME = as.factor(data_cancel$ORIGIN_CITY_NAME)
+data_cancel$ORIGIN_STATE_ABR = as.factor(data_cancel$ORIGIN_STATE_ABR)
+data_cancel$DEST_AIRPORT_ID = as.factor(data_cancel$DEST_AIRPORT_ID)
+data_cancel$DEST = as.factor(data_cancel$DEST)
+data_cancel$DEST_CITY_NAME = as.factor(data_cancel$DEST_CITY_NAME)
+data_cancel$DEST_STATE_ABR = as.factor(data_cancel$DEST_STATE_ABR)
+data_cancel$ARR_DEL15 = as.factor(data_cancel$ARR_DEL15)
+data_cancel$DIVERTED = as.factor(data_cancel$DIVERTED)
+data_cancel$CARRIER_DELAY = as.factor(data_cancel$CARRIER_DELAY)
+data_cancel$WEATHER_DELAY = as.factor(data_cancel$WEATHER_DELAY)
+data_cancel$NAS_DELAY = as.factor(data_cancel$NAS_DELAY)
+data_cancel$SECURITY_DELAY = as.factor(data_cancel$SECURITY_DELAY)
+data_cancel$LATE_AIRCRAFT_DELAY = as.factor(data_cancel$LATE_AIRCRAFT_DELAY)
+data_cancel$CANCELLED = as.factor(data_cancel$CANCELLED)
+
+summary(data_cancel)
+
+```
+
+# CANCELLATION FOR CHICAGO
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Chicago, IL")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .001))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+# CANCELLATION FOR NEW YORK
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "New York, NY")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .001))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+# CANCELLATION FOR Newark, NJ
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Newark, NJ")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+
+summary(data_cancel_city$CANCELLED)
+9148 / nrow(data_cancel_city)
+```
+
+
+
+
+# CANCELLATION FOR San Francisco, CA
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "San Francisco, CA")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+
+# CANCELLATION FOR Denver, CO
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Denver, CO")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+
+
+# CANCELLATION FOR Long Beach, CA
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Long Beach, CA")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+# CANCELLATION FOR Newburgh/Pughkeepsie, NY
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Newburgh/Poughkeepsie, NY")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .001))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+# CANCELLATION FOR Los Angeles, CA
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Los Angeles, CA")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+
+
+# CANCELLATION FOR Dallas/Fort WOrth, TX
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Dallas/Fort Worth, TX")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .001))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+# CANCELLATION FOR Santa Ana, CA
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Santa Ana, CA")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .0015))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+
+# CANCELLATION FOR Phoenix, AZ
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Phoenix, AZ")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .0018, minbucket = 90))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+
+
+
+# CANCELLATION FOR Fort Lauderdale, FL
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Fort Lauderdale, FL")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+# CANCELLATION FOR White Plains, NY
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "White Plains, NY")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+# CANCELLATION FOR Islip, NY
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Islip, NY")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .0015))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+# CANCELLATION FOR Charlotte, NC
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Charlotte, NC")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+
+
+
+
+
+# CANCELLATION FOR Las Vegas, NV
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Las Vegas, NV")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+# CANCELLATION FOR Houston, TX
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Houston, TX")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+
+# CANCELLATION FOR Orlando, FL
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Orlando, FL")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+# CANCELLATION FOR Atlanta, GA
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Atlanta, GA")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+
+# CANCELLATION FOR Burbank, CA
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Burbank, CA")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+# CANCELLATION FOR Miami, FL
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Miami, FL")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+# CANCELLATION FOR San Jose, CA
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "San Jose, CA")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+
+# CANCELLATION FOR Ontario, CA
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Ontario, CA")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+# CANCELLATION FOR Oakland, CA
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Oakland, CA")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+# CANCELLATION FOR Dallas, TX
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Dallas, TX")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+# CANCELLATION FOR Seattle, WA
+
+```{r}
+#Splitting data into different departure cities
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_NAME == "Seattle, WA")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .00097))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin City =", as.character(high)), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+
+
+
+
+
+
+# TREES FOR MARKETS
+```{r}
+markets = unique(data_cancel$ORIGIN_CITY_MARKET_ID)
+markets
+```
+
+# CANCELLATION FOR New York City Area
+
+```{r}
+#Splitting data into different departure cities
+#31703 32575 31057 32467 30559 30194 32211 32457 31453 30977 30466 31454 30325 30397
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_MARKET_ID == "31703")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + ORIGIN + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002, minbucket = 100))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin Market = New York City Area"), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+# CANCELLATION FOR Southern California
+
+```{r}
+#Splitting data into different departure cities
+#31703 32575 31057 32467 30559 30194 32211 32457 31453 30977 30466 31454 30325 30397
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_MARKET_ID == "32575")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + ORIGIN + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002, minbucket = 100))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin Market = Southern California Area"), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+
+# CANCELLATION FOR Charlotte, NC Area
+
+```{r}
+#Splitting data into different departure cities
+#31703 32575 31057 32467 30559 30194 32211 32457 31453 30977 30466 31454 30325 30397
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_MARKET_ID == "31057")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + ORIGIN + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002, minbucket = 100))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin Market = Charlotte, NC Area"), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+
+
+
+# CANCELLATION FOR  Southern Florida Area
+
+```{r}
+#Splitting data into different departure cities
+#31703 32575 31057 32467 30559 30194 32211 32457 31453 30977 30466 31454 30325 30397
+data_cancel_city = data_cancel[c(which(data_cancel$ORIGIN_CITY_MARKET_ID == "32467")),]
+#summary(data_cancel_city)
+
+#TREE
+set.seed(716)
+tree = rpart(CANCELLED ~ DEST + ORIGIN + MONTH + YEAR + DAY_OF_WEEK + MKT_CARRIER + DAY_OF_WEEK + ORIGIN, data = data_cancel_city, method = "class", control = rpart.control(cp = .002, minbucket = 100))
+high = data_cancel_city$ORIGIN_CITY_NAME[1]
+fancyRpartPlot(tree, main = paste("Single Tree for Origin Market = Southern Florida Area"), palettes=c("Greens", "Reds"))
+
+
+#Obtain the fitted probabilities
+probs3 <- predict(tree)
+probs3 <- as.matrix(probs3)
+
+#Obtain the Predictions
+preds3 = apply(probs3, 1, function(x) which.max(x))
+preds3 = ifelse(preds3 ==1, 0,1)
+
+#Creates a confusion matrix
+as.matrix(table(preds3, data_cancel_city$CANCELLED) ) ##this means that we misclassified
+
+#Train CER
+1 - (sum(preds3 == data_cancel_city$CANCELLED)/nrow(data_cancel_city)) 
+```
+
+
+
+
+THERE IS NOT A SIGNIFICANT DIFFERENCE BETWEEN AIRPORTS WITHIN 1 MARKET VALUE WHEN FITTING THE TREES
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
